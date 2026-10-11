@@ -2,13 +2,13 @@
 
 A machine learning project for predicting house prices based on property characteristics such as area, bedrooms, bathrooms, stories, amenities, parking, preferred area, and furnishing status.
 
-This project covers the complete machine learning workflow from data cleaning and exploratory data analysis to feature engineering, model training, evaluation, visualization, and model saving.
+This project covers the complete machine learning workflow from data loading, cleaning, categorical encoding, and feature engineering to model training, hyperparameter tuning, evaluation, model saving, and visualization.
 
 ---
 
 ## 📌 Project Overview
 
-House prices depend on several property characteristics. The goal of this project is to build regression models that can estimate the price of a house using the available property features.
+House prices depend on several property characteristics. The goal of this project is to build regression models that estimate the price of a house using the available property features.
 
 Two regression models were developed and evaluated:
 
@@ -21,7 +21,7 @@ The models were evaluated using:
 - **Root Mean Squared Error (RMSE)**
 - **R² Score**
 
-The project also includes exploratory visualizations to understand relationships between property characteristics and house prices.
+The project also includes exploratory and diagnostic visualizations to examine price distributions, feature correlations, feature importances, and model predictions.
 
 ---
 
@@ -29,7 +29,7 @@ The project also includes exploratory visualizations to understand relationships
 
 The project uses the **Housing Prices Dataset** from Kaggle.
 
-### Dataset
+### Source
 
 [Housing Prices Dataset - Kaggle](https://www.kaggle.com/datasets/yasserh/housing-prices-dataset)
 
@@ -39,133 +39,112 @@ The project uses the **Housing Prices Dataset** from Kaggle.
 |---|---|
 | **Rows** | 545 |
 | **Original Columns** | 13 |
+| **Processed Columns** | 17 (after one-hot encoding and feature engineering) |
 | **Target Variable** | `price` |
 
-### Features
+### Original Features
 
 | Feature | Description |
 |---|---|
-| `price` | House price |
-| `area` | Area of the property in square feet |
+| `price` | House price (in dataset units; currency is not specified in the Kaggle source) |
+| `area` | Area of the property (in dataset units; measurement unit is not specified in the Kaggle source) |
 | `bedrooms` | Number of bedrooms |
 | `bathrooms` | Number of bathrooms |
 | `stories` | Number of stories |
-| `mainroad` | Whether the property is connected to the main road |
-| `guestroom` | Whether the property has a guest room |
-| `basement` | Whether the property has a basement |
-| `hotwaterheating` | Whether hot water heating is available |
-| `airconditioning` | Whether air conditioning is available |
+| `mainroad` | Whether the property is connected to the main road (`yes` / `no`) |
+| `guestroom` | Whether the property has a guest room (`yes` / `no`) |
+| `basement` | Whether the property has a basement (`yes` / `no`) |
+| `hotwaterheating` | Whether hot water heating is available (`yes` / `no`) |
+| `airconditioning` | Whether air conditioning is available (`yes` / `no`) |
 | `parking` | Number of parking spaces |
-| `prefarea` | Whether the property is located in a preferred area |
-| `furnishingstatus` | Furnishing status of the property |
+| `prefarea` | Whether the property is located in a preferred area (`yes` / `no`) |
+| `furnishingstatus` | Furnishing status of the property (`furnished`, `semi-furnished`, `unfurnished`) |
 
 ---
 
 ## 🔄 Project Workflow
 
+The workflow below matches the exact execution order in `notebooks/analysis.ipynb`:
+
 ### 1. Data Loading
 
-The raw `Housing.csv` dataset is loaded and inspected.
+The raw `data/raw/Housing.csv` dataset is loaded and inspected:
 
-Initial checks include:
-
-- Dataset shape
-- First few records
-- Column names
-- Data types
-- Missing values
-- Duplicate rows
-- Basic statistical information
+- First 10 records (`df.head(10)`)
+- Dataset shape (`545` rows, `13` columns)
+- Column names and data types
+- Basic statistical summary (`df.describe()`)
+- Missing value counts per column (`0` missing values)
 
 ---
 
-### 2. Data Cleaning
+### 2. Data Cleaning & Categorical Encoding
 
-The dataset is checked and prepared for machine learning.
+The dataset is checked and encoded into numeric features for machine learning:
 
-The cleaning process includes:
-
-- Checking for missing values
-- Checking for duplicate rows
-- Checking categorical values
-- Converting categorical variables into numerical representations
-- Checking data types
-- Investigating numerical distributions and potential outliers
-
-The dataset contains **no missing values or duplicate rows**.
+- Checking for duplicate rows (`0` duplicate rows)
+- Inspecting unique values across all categorical columns
+- Mapping binary `yes`/`no` columns (`mainroad`, `guestroom`, `basement`, `hotwaterheating`, `airconditioning`, `prefarea`) to `1` and `0`
+- One-hot encoding `furnishingstatus` (`drop_first=True`) into `furnishingstatus_semi-furnished` and `furnishingstatus_unfurnished`
+- Verifying that all resulting columns are numeric (`14` columns, `0` missing values)
 
 ---
 
-### 3. Exploratory Data Analysis
+### 3. Feature Engineering
 
-Exploratory analysis is performed to understand the distribution of house prices and relationships between the available features.
+Three additional features are engineered from the existing property attributes:
 
-The analysis includes:
+- `bed_bath_count`: Total bedrooms and bathrooms (`bedrooms + bathrooms`)
+- `area_per_bed_bath`: Property area divided by total bedrooms and bathrooms (`area / bed_bath_count`)
+- `luxury_score`: Sum of five binary indicators (`airconditioning + hotwaterheating + prefarea + guestroom + basement`)
 
-- Price distribution
-- Numerical feature relationships
-- Correlation analysis
-- Categorical feature analysis
-- Feature importance analysis
+The cleaned and engineered dataset (`545` rows, `17` columns) is saved to `data/processed/Housing_cleaned.csv`.
 
 ---
 
-### 4. Feature Engineering
+### 4. Train-Test Split
 
-Additional features are created from the available property characteristics.
+The dataset is separated into `16` features (`X`) and the target variable `price` (`y`), then split into:
 
-The notebook creates:
+- **80% training data** (`436` rows)
+- **20% test data** (`109` rows)
 
-- `bed_bath_count`
-- `area_per_bed_bath`
-- `luxury_score`
-
-The processed dataset is saved for further modeling.
+A `random_state` of **42** is used for reproducibility.
 
 ---
 
-### 5. Train-Test Split
+### 5. Feature Scaling
 
-The dataset is divided into:
+`StandardScaler` is fitted on the training features (`X_train`) and used to transform both `X_train` and `X_test` for the **Linear Regression** model.
 
-- **80% training data**
-- **20% test data**
-
-A `random_state` of **42** is used to make the results reproducible.
+Random Forest is trained on the unscaled features because tree-based splits are invariant to monotonic feature scaling.
 
 ---
 
-### 6. Feature Scaling
+### 6. Model Building & Hyperparameter Tuning
 
-`StandardScaler` is used for the **Linear Regression** model.
-
-The scaler is fitted using the training data and then applied to the training and test datasets.
-
-Random Forest does not require feature scaling because tree-based models are not affected by differences in feature magnitude in the same way as distance- or coefficient-based models.
-
----
-
-### 7. Model Building
-
-Two regression models are developed.
+Two regression models are trained and compared:
 
 #### Linear Regression
 
-Linear Regression is used as a baseline regression model for predicting house prices.
+Trained on the standardized training features (`X_train_scaled`) as a baseline linear model.
 
 #### Random Forest Regressor
 
-A Random Forest Regressor is trained to capture non-linear relationships between the property features and house prices.
+Tuned using `GridSearchCV` across **108 hyperparameter combinations** with **5-fold cross-validation** (`540` total fits):
 
-`GridSearchCV` is used to tune the Random Forest hyperparameters.
+- `n_estimators`: `[100, 200, 300]`
+- `max_depth`: `[3, 5, 7, None]`
+- `min_samples_split`: `[2, 5, 10]`
+- `min_samples_leaf`: `[1, 2, 4]`
 
-A total of **108 parameter combinations** are evaluated using **5-fold cross-validation**.
+Best parameters found: `{'max_depth': 7, 'min_samples_leaf': 2, 'min_samples_split': 2, 'n_estimators': 100}` (best 5-fold cross-validated R² = **0.6351**).
 
 ---
 
-### 8. Model Evaluation
+### 7. Model Evaluation
 
-The models are evaluated on the test dataset using:
+Both models are evaluated on the held-out test set (`109` rows) using:
 
 - **Mean Absolute Error (MAE)**
 - **Root Mean Squared Error (RMSE)**
@@ -173,83 +152,80 @@ The models are evaluated on the test dataset using:
 
 ---
 
-### 9. Model Saving
+### 8. Model Saving
 
-The trained models and scaler are saved using **Joblib** so that they can be reused for future predictions.
+The trained Linear Regression model, tuned Random Forest model, and fitted `StandardScaler` are serialized to `models/` using **Joblib**.
+
+---
+
+### 9. Exploratory & Evaluation Visualizations
+
+Five visualizations are generated and saved to `charts/`:
+
+- Raw and log-transformed (`log(1 + Price)`) house price distributions
+- Lower-triangle feature correlation heatmap across all 17 numeric columns
+- Actual vs. predicted test-set prices for both models
+- Random Forest feature importance bar chart
+- House price vs. area scatter plot colored by furnishing status
 
 ---
 
 ## 📈 Model Results
 
-The models were evaluated on the same test dataset.
+Both models were evaluated on the same held-out test dataset (`109` rows). Because the Kaggle source dataset does not specify a currency unit for `price`, error metrics are reported in raw dataset price units.
 
-| Model | MAE | R² Score |
-|---|---:|---:|
-| **Linear Regression** | **₹966,320** | **0.6583** |
-| Random Forest | ₹1,049,055 | 0.5977 |
+| Model | MAE | RMSE | R² Score |
+|---|---:|---:|---:|
+| **Linear Regression** | **966,320** | **1,314,226** | **0.6583** |
+| Random Forest | 1,049,055 | 1,426,042 | 0.5977 |
 
 ### Best Model
 
-Based on the test-set results, **Linear Regression** achieved the higher R² score among the two evaluated models.
+Based on the test-set results, **Linear Regression** achieved the higher R² score and lower error metrics among the two evaluated models:
 
 - **R² Score:** 0.6583
-- **MAE:** ₹966,320
+- **MAE:** 966,320
+- **RMSE:** 1,314,226
 
-The R² score of **0.6583** means that the model explains approximately **65.83% of the variation in house prices** in the test dataset.
+The R² score of **0.6583** indicates that the Linear Regression model explains approximately **65.83% of the variance in house prices** in the test dataset.
 
-The MAE of **₹966,320** means that the model's predictions differ from the actual house prices by approximately **₹966,320 on average** on the test dataset.
-
-For this dataset and test split, Linear Regression achieved a higher test-set R² score than the tuned Random Forest model.
+The MAE of **966,320** indicates that the model's predictions differ from actual test-set house prices by **966,320 units on average**.
 
 ---
 
 ## 🔍 Key Findings
 
-The analysis shows noticeable relationships between house prices and several property characteristics.
+- **`area`** shows the strongest positive linear correlation with `price` ($r = 0.54$) and is the top contributor in Random Forest feature importance ($0.462$).
+- **`bed_bath_count` and `bathrooms`** are strongly associated with house price ($r = 0.51$ and $r = 0.52$; Random Forest importances of $0.100$ and $0.085$, respectively).
+- **`luxury_score`** (combining `airconditioning`, `hotwaterheating`, `prefarea`, `guestroom`, and `basement`) correlates strongly with `price` ($r = 0.51$) and ranks fourth in Random Forest importance ($0.081$).
+- **Linear Regression generalized better than Random Forest** on this 545-row dataset and 80/20 split (Test R² of `0.6583` vs. `0.5977`).
 
-Some of the features associated with house prices include:
-
-- Area
-- Bathrooms
-- Bedrooms
-- Furnishing status
-- Parking
-- Property amenities
-- Preferred area
-
-The Random Forest feature importance analysis provides an additional view of the relative contribution of the available features to the model's predictions.
-
-> **Note:** These relationships describe patterns observed in the dataset and should not be interpreted as proof of causation.
+> **Note:** These relationships describe associations observed in the dataset and should not be interpreted as proof of causation.
 
 ---
 
-## 💼 Business Interpretation
+## 💼 Practical Interpretation
 
-### For Sellers
+### For Sellers and Buyers
 
-Property characteristics such as larger area, additional bathrooms, furnishing status, and available amenities are associated with higher house prices in this dataset.
-
-### For Buyers
-
-The model can be used as a supporting tool to estimate an expected house price based on the characteristics of a property.
+Within this dataset, properties with larger `area`, more `bathrooms`, a higher `luxury_score` (air conditioning, preferred area, basement, guest room, hot water heating), and furnished status are associated with higher prices.
 
 ### Important Considerations
 
-The model should be considered alongside other real-world factors such as:
+Any real-world property valuation must also account for factors not captured in this dataset:
 
-- Exact location
-- Market conditions
-- Property age
+- Exact geographic location and neighborhood
+- Currency and measurement units
+- Property age and physical condition
 - Construction quality
-- Neighborhood characteristics
-- Current demand
+- Macroeconomic and local market conditions
 
 ---
 
 ## 📁 Project Structure
 
 ```text
-House_Price_Prediction/
+House Price Prediction/
 │
 ├── data/
 │   ├── raw/
@@ -259,7 +235,7 @@ House_Price_Prediction/
 │       └── Housing_cleaned.csv
 │
 ├── notebooks/
-│   └── House_Price_Prediction.ipynb
+│   └── analysis.ipynb
 │
 ├── models/
 │   ├── linear_regression_model.pkl
@@ -273,12 +249,8 @@ House_Price_Prediction/
 │   ├── chart4_feature_importance.png
 │   └── chart5_price_vs_area_furnishing.png
 │
-├── predictions/
-│   └── sample_predictions.csv
-│
 ├── requirements.txt
 ├── .gitignore
-├── LICENSE
 └── README.md
 ```
 
@@ -286,13 +258,13 @@ House_Price_Prediction/
 
 ## 🛠️ Technologies Used
 
-- **Python**
-- **Pandas**
-- **NumPy**
-- **Matplotlib**
-- **Seaborn**
-- **Scikit-learn**
-- **Joblib**
+- **Python 3.13**
+- **Pandas** (`3.0.3`)
+- **NumPy** (`2.5.1`)
+- **Matplotlib** (`3.11.0`)
+- **Seaborn** (`0.13.2`)
+- **Scikit-learn** (`1.9.0`)
+- **Joblib** (`1.5.3`)
 - **Jupyter Notebook**
 
 ---
@@ -303,7 +275,7 @@ House_Price_Prediction/
 
 ```bash
 git clone <your-repository-url>
-cd House_Price_Prediction
+cd "House Price Prediction"
 ```
 
 ### 2. Create a Virtual Environment
@@ -336,127 +308,68 @@ pip install -r requirements.txt
 
 ## ▶️ Running the Project
 
-Open the notebook located in the `notebooks/` directory using **Jupyter Notebook** or **VS Code**.
-
-Run the notebook cells from top to bottom to reproduce the complete machine learning workflow:
-
-1. **Data loading**
-2. **Data cleaning**
-3. **Exploratory data analysis**
-4. **Feature engineering**
-5. **Train-test split**
-6. **Model training**
-7. **Hyperparameter tuning**
-8. **Model evaluation**
-9. **Visualizations**
-10. **Model saving**
-11. **Sample predictions**
-
-### Run Jupyter Notebook
+Open `notebooks/analysis.ipynb` in **Jupyter Notebook** or **VS Code**. Because the notebook resolves paths dynamically using `PROJECT_ROOT`, it can be launched from either the project root directory or the `notebooks/` directory.
 
 ```bash
-jupyter notebook
+jupyter notebook notebooks/analysis.ipynb
 ```
 
-Then open:
+Run all cells from top to bottom to reproduce:
 
-```text
-notebooks/House_Price_Prediction.ipynb
-```
+1. **Data loading and summary statistics**
+2. **Data cleaning and categorical encoding**
+3. **Feature engineering and saving `data/processed/Housing_cleaned.csv`**
+4. **Train-test split and `StandardScaler` preprocessing**
+5. **Linear Regression training and test-set evaluation**
+6. **Random Forest `GridSearchCV` tuning and test-set evaluation**
+7. **Saving models and scaler to `models/`**
+8. **Generating and saving all 5 charts to `charts/`**
 
 ---
 
 ## 📊 Visualizations
 
-The project includes several visualizations to analyze the dataset and model performance.
+### 1. Price Distribution
 
-### Price Distribution
+Displays the raw house price distribution (with mean `4.77M` and median `4.34M` reference lines) alongside the log-transformed `log(1 + Price)` distribution.
 
-The distribution of house prices is visualized to understand the overall price range and distribution.
+- **File:** `charts/chart1_price_distribution.png`
 
-**File:**
+### 2. Feature Correlation Heatmap
 
-```text
-charts/chart1_price_distribution.png
-```
+Displays Pearson correlation coefficients across all 17 numeric features (`Light Teal/Green = Positive, Dark Purple = Negative`).
 
-### Correlation Heatmap
+- **File:** `charts/chart2_correlation_heatmap.png`
 
-A correlation heatmap is used to understand relationships between numerical features and house prices.
+### 3. Actual vs. Predicted Prices
 
-**File:**
+Compares actual vs. predicted test-set prices for both Linear Regression (`R² = 0.6583`) and Random Forest (`R² = 0.5977`).
 
-```text
-charts/chart2_correlation_heatmap.png
-```
+- **File:** `charts/chart3_actual_vs_predicted.png`
 
-### Actual vs Predicted Prices
+### 4. Random Forest Feature Importance
 
-This visualization compares the actual house prices with the prices predicted by the model.
+Ranks all 16 features by their relative importance in the tuned Random Forest model.
 
-**File:**
+- **File:** `charts/chart4_feature_importance.png`
 
-```text
-charts/chart3_actual_vs_predicted.png
-```
+### 5. Price vs. Area by Furnishing Status
 
-### Feature Importance
+Illustrates the relationship between property `area` and `price` across `Furnished`, `Semi-Furnished`, and `Unfurnished` properties.
 
-The Random Forest model's feature importance is visualized to understand the relative contribution of different features to the predictions.
-
-**File:**
-
-```text
-charts/chart4_feature_importance.png
-```
-
-### Price vs Area and Furnishing
-
-A visualization is used to explore the relationship between property area, furnishing status, and house prices.
-
-**File:**
-
-```text
-charts/chart5_price_vs_area_furnishing.png
-```
+- **File:** `charts/chart5_price_vs_area_furnishing.png`
 
 ---
 
 ## 💾 Saved Models
 
-The trained machine learning models and preprocessing scaler are saved using **Joblib**.
+The trained models and preprocessing scaler are saved using **Joblib**:
 
-### Linear Regression Model
+- **Linear Regression Model:** `models/linear_regression_model.pkl`
+- **Random Forest Model:** `models/random_forest_model.pkl`
+- **Feature Scaler:** `models/scaler.pkl`
 
-```text
-models/linear_regression_model.pkl
-```
-
-### Random Forest Model
-
-```text
-models/random_forest_model.pkl
-```
-
-### Feature Scaler
-
-```text
-models/scaler.pkl
-```
-
-These saved files can be loaded later to make predictions without retraining the models.
-
----
-
-## 🔮 Sample Predictions
-
-Sample model predictions are saved in:
-
-```text
-predictions/sample_predictions.csv
-```
-
-The predictions can be used to compare the model's estimated house prices with the actual values from the test dataset.
+> **Environment Note:** These `.pkl` files were serialized using **Python 3.13.1**, **scikit-learn 1.9.0**, **numpy 2.5.1**, and **joblib 1.5.3** (pinned in `requirements.txt`). Use matching package versions when loading these artifacts to avoid version mismatch warnings or deserialization issues.
 
 ---
 
@@ -464,71 +377,47 @@ The predictions can be used to compare the model's estimated house prices with t
 
 ### Mean Absolute Error (MAE)
 
-MAE measures the average absolute difference between the predicted and actual house prices.
-
-A lower MAE indicates that the predictions are, on average, closer to the actual values.
+Measures the average absolute difference between predicted and actual house prices. Lower values indicate better average accuracy.
 
 ### Root Mean Squared Error (RMSE)
 
-RMSE measures the square root of the average squared difference between predicted and actual values.
-
-Because errors are squared before averaging, RMSE gives more weight to larger prediction errors.
+Measures the square root of the average squared prediction error, penalizing large errors more heavily than MAE.
 
 ### R² Score
 
-R² measures the proportion of variance in the target variable that is explained by the model.
-
-A higher R² generally indicates that the model explains more of the variation in the target variable.
+Measures the proportion of variance in the target variable (`price`) explained by the model. Higher values (closer to `1.0`) indicate better explanatory power.
 
 ---
 
 ## ⚠️ Limitations
 
-This project is based on a single housing dataset and has several limitations:
+This project is based on a single dataset and has several important limitations:
 
-- The dataset contains a relatively small number of observations.
-- The available features do not represent every factor that can influence house prices.
-- Exact location information is not available.
-- Property age is not included.
-- Construction quality is not included.
-- Neighborhood characteristics are not included.
-- Current market conditions are not included.
-- Model performance is based on the selected train-test split.
-- The results may not generalize to other housing markets or future market conditions.
+- The dataset is small (`545` rows total; `436` training rows and `109` test rows).
+- The Kaggle source dataset does not document the currency unit for `price` or the measurement unit for `area`.
+- Exact geographic coordinates, city/region, and neighborhood data are not included.
+- Property age, architectural style, and construction quality are not included.
+- Temporal and market-condition variables (e.g., year sold, interest rates) are not included.
+- Model evaluation is based on a single 80/20 train-test split (`random_state=42`).
 
-Therefore, the model should be considered an **educational and analytical prediction tool** rather than a complete property valuation system.
+Accordingly, this project is intended as an **educational machine learning and data analysis portfolio project** rather than a production property appraisal system.
 
 ---
 
 ## 🏁 Conclusion
 
-This project demonstrates a complete machine learning workflow for a house price regression problem.
+This project demonstrates an end-to-end regression workflow on structured housing data—covering data inspection, categorical encoding, feature engineering, scaling, baseline and ensemble modeling, cross-validated hyperparameter tuning, model serialization, and visual diagnostics.
 
-The project covers:
-
-- Data cleaning
-- Exploratory data analysis
-- Feature engineering
-- Categorical encoding
-- Feature scaling
-- Model building
-- Hyperparameter tuning
-- Model evaluation
-- Data visualization
-- Model saving
-
-Among the two evaluated models, **Linear Regression achieved the higher test-set R² score of 0.6583**, with an MAE of approximately **₹966,320**.
-
-The project demonstrates how machine learning can be applied to estimate house prices from structured property data while highlighting the importance of model evaluation and understanding dataset limitations.
+On the held-out test set, **Linear Regression achieved the stronger performance (`R² = 0.6583`, `MAE = 966,320`, `RMSE = 1,314,226`)** compared to the tuned **Random Forest Regressor (`R² = 0.5977`, `MAE = 1,049,055`, `RMSE = 1,426,042`)**.
 
 ---
 
-## Contact
+## 📬 Contact
 
 **Thota Venkata Vishnu Vardhan**
 
-📧 Email: [venkatavishnuvardhanthota@gmail.com](mailto:venkatavishnuvardhanthota@gmail.com)
+Email: [venkatavishnuvardhanthota@gmail.com](mailto:venkatavishnuvardhanthota@gmail.com)
 
-💻 GitHub: https://github.com/Venkatavishnuvardhanthota
+GitHub: [https://github.com/Venkatavishnuvardhanthota](https://github.com/Venkatavishnuvardhanthota)
 
-🔗 LinkedIn: https://www.linkedin.com/in/venkata-vishnu-vardhan-thota/
+LinkedIn: [https://www.linkedin.com/in/venkata-vishnu-vardhan-thota/](https://www.linkedin.com/in/venkata-vishnu-vardhan-thota/)
